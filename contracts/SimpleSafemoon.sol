@@ -42,7 +42,7 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
     struct StakeInfo { 
         uint256 endAt;
         uint256 amount;
-        uint256 reward;
+        uint256 share;
     }
 
     constructor() ERC20("SimpleSafeMoon", "SSM") payable {
@@ -64,12 +64,17 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
         require(stakeInfo.endAt > 0, "Illegal staking end time");
         require(block.timestamp > stakeInfo.endAt , "Too early to claim reward");
 
-        _accountStakeReward[msg.sender] = _accountStakeReward[msg.sender].add(stakeInfo.reward);
+        uint256 shareRatio = stakeInfo.share.mul(10**6).div(_stakeTotalShare);
+        uint256 stakeReward = _stakeTotalReward.mul(shareRatio).div(10**6);
+        _accountStakeReward[msg.sender] = _accountStakeReward[msg.sender].add(stakeReward);
+        _stakeTotalShare = _stakeTotalShare.sub(stakeInfo.share);
+        _stakeTotalReward = _stakeTotalReward.sub(stakeReward);
 
         delete _accountStakeInfos[msg.sender]; // reset stakeInfo
     }
 
     function stakeToken(uint256 stakeAmount, uint256 period) external {
+        require(stakeAmount >0, "Illegal stake amount");
         require(period == 14 || period == 30, "stake period not supported");
 
         uint256 availableBalance = balanceOf(msg.sender).sub(_accountStakeReward[msg.sender]);
@@ -81,14 +86,9 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
         // update state variables
         _stakeTotalShare = _stakeTotalShare.add(stakeTokenShare);
         
-        uint256 shareRatio = stakeTokenShare.mul(10**6).div(_stakeTotalShare);
-        uint256 stakeReward = _stakeTotalReward.mul(shareRatio).div(10**6);
-        
-        if (stakeReward > 0) {
-            _accountStakeInfos[msg.sender].endAt = block.timestamp + (period * 24 * 60 * 60);
-            _accountStakeInfos[msg.sender].amount = stakeAmount;
-            _accountStakeInfos[msg.sender].reward = stakeReward;
-        }
+        _accountStakeInfos[msg.sender].endAt = block.timestamp + (period * 24 * 60 * 60);
+        _accountStakeInfos[msg.sender].amount = stakeAmount;
+        _accountStakeInfos[msg.sender].share = stakeTokenShare;
     }
 
     function getFreeToken(uint256 amount) external {
@@ -97,6 +97,10 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
 
     function accountStakeInfos(address account) public view returns (StakeInfo memory) {
         return _accountStakeInfos[account];
+    }
+
+    function accountStakeReward(address account) public view returns (uint256) {
+        return _accountStakeReward[account];
     }
 
     function stakeTotalShare() public view returns(uint256) {
@@ -126,13 +130,9 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
     ) internal override {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance to transfer");
+        require(balanceOf(msg.sender).sub(_accountStakeInfos[msg.sender].amount) >= amount, "Staked token cannot be transfer");
         
-        {
-            // fix: Stack too deep
-            uint256 availableBalance = balanceOf(msg.sender).sub(_accountStakeReward[msg.sender]);
-            require(availableBalance >= amount, "Insufficient balance to transfer");
-        }
-
         uint256 currentRate =  _getRate();
         uint256 rAmount = amount.mul(currentRate);
 
