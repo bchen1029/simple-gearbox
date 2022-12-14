@@ -91,10 +91,6 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
         _accountStakeInfos[msg.sender].share = stakeTokenShare;
     }
 
-    function getFreeToken(uint256 amount) external {
-        _transfer(owner(), msg.sender, amount);
-    }
-
     function accountStakeInfos(address account) public view returns (StakeInfo memory) {
         return _accountStakeInfos[account];
     }
@@ -153,7 +149,7 @@ contract SimpleSafeMoon is ERC20, Ownable, ReentrancyGuard {
 
         if (to == uniswapV2Pair) { // 把 token 轉到流動池，代表在 uniswap 上，賣出該 token 
             liquidityFee = amount.mul(5).div(100); // 5% fee for adding liquidity to uniswap pair
-            rliquidityFee = liquidityFee.mul(currentRate);
+            addLiquidityToUniswapV2Pair(liquidityFee); // this won't work, fix this
         }
 
         uint256 rTransferAmount = rAmount.sub(rFee).sub(rStakeFee);
