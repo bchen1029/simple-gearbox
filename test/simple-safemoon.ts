@@ -6,11 +6,6 @@ dotenv.config();
 import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { SimpleSafeMoon } from "../typechain-types/contracts/SimpleSafemoon.sol/index";
 
-// 每次 Transfer 會徵收 5% 的稅，“即時” 依照餘額比例分給所有持幣者
-// 每次 Transfer 會徵收 5% 的稅，“即時” 依照鎖倉代幣的時間和數量，分給鎖倉代幣用戶
-// 每次在 Uniswap 上賣出會徵收 5% 的稅，會用來向 Uniswap 上的池子添加流動性
-// 參考 SafeMoon 代幣
-
 async function deploySimpleSafeMoon() {
   const SimpleSafeMoon = await ethers.getContractFactory("SimpleSafeMoon");
   const simpleSafeMoon = await SimpleSafeMoon.deploy();
